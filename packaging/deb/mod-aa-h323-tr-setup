@@ -1,0 +1,132 @@
+#!/bin/sh
+# Модуль H323 trunk в FreeSWITCH (mod_aa_h323_tr)
+# Copyright (c) 2026: Сенашенко Дмитрий.
+# Разработано в Российской Федерации.
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+# mod-aa-h323-tr-setup - размещает файлы mod_aa_h323_tr в каталогах FreeSWITCH.
+# Вызывается из postinst пакета mod-aa-h323-tr; безопасно запускать повторно вручную.
+# Каталоги: FS_PREFIX ($FS_PREFIX/mod и $FS_PREFIX/conf), либо FS_MODDIR и FS_CONFDIR по отдельности,
+# либо автоопределение (/usr/local/freeswitch, затем пакетная раскладка). Значения можно записать в
+# /etc/default/mod-aa-h323-tr (строки вида FS_PREFIX=/usr/local/freeswitch).
+# Переменные AA_TR_LOCAL_IP и AA_TR_PORT задают local.ip и local.h225_port только при СОЗДАНИИ aa_h323_tr.json
+# (существующий файл администратора не изменяется).
+SHARE=${SHARE:-/usr/share/mod-aa-h323-tr}
+STATE=${STATE:-/var/lib/mod-aa-h323-tr}
+[ -f /etc/default/mod-aa-h323-tr ] && . /etc/default/mod-aa-h323-tr
+. "$SHARE/jsonkey.sh"
+
+say()  { echo "mod-aa-h323-tr-setup: $*"; }
+warn() { echo "mod-aa-h323-tr-setup: ВНИМАНИЕ: $*" >&2; }
+
+find_fs_cli() {
+    FS_CLI=""
+    for c in "${FS_PREFIX:+$FS_PREFIX/bin/fs_cli}" /usr/local/freeswitch/bin/fs_cli /usr/bin/fs_cli /opt/freeswitch/bin/fs_cli; do
+        [ -n "$c" ] && [ -x "$c" ] && { FS_CLI="$c"; return 0; }
+    done
+    c="$(command -v fs_cli 2>/dev/null || true)"
+    [ -n "$c" ] && FS_CLI="$c"
+    return 0
+}
+
+locate_dirs() {
+    if [ -n "${FS_PREFIX:-}" ]; then
+        [ -n "${FS_MODDIR:-}" ]  || FS_MODDIR="$FS_PREFIX/mod"
+        [ -n "${FS_CONFDIR:-}" ] || FS_CONFDIR="$FS_PREFIX/conf"
+    fi
+    if [ -z "${FS_MODDIR:-}" ] && [ -n "$FS_CLI" ]; then
+        v="$("$FS_CLI" -x 'global_getvar mod_dir' 2>/dev/null | head -n1 || true)"; [ -d "$v" ] && FS_MODDIR="$v"
+    fi
+    if [ -z "${FS_CONFDIR:-}" ] && [ -n "$FS_CLI" ]; then
+        v="$("$FS_CLI" -x 'global_getvar conf_dir' 2>/dev/null | head -n1 || true)"; [ -d "$v" ] && FS_CONFDIR="$v"
+    fi
+    if [ -z "${FS_MODDIR:-}" ] && [ -d /usr/local/freeswitch/mod ]; then FS_MODDIR=/usr/local/freeswitch/mod; fi
+    if [ -z "${FS_CONFDIR:-}" ] && [ -d /usr/local/freeswitch/conf ]; then FS_CONFDIR=/usr/local/freeswitch/conf; fi
+    if [ -z "${FS_MODDIR:-}" ]; then
+        for v in /usr/lib/freeswitch/mod /usr/lib/x86_64-linux-gnu/freeswitch/mod /usr/lib64/freeswitch/mod /opt/freeswitch/mod; do
+            [ -d "$v" ] && { FS_MODDIR="$v"; break; }
+        done
+    fi
+    if [ -z "${FS_CONFDIR:-}" ]; then
+        for v in /etc/freeswitch /opt/freeswitch/conf; do
+            [ -f "$v/freeswitch.xml" ] && { FS_CONFDIR="$v"; break; }
+        done
+    fi
+    [ -n "${FS_MODDIR:-}" ] && [ -n "${FS_CONFDIR:-}" ] && [ -d "$FS_MODDIR" ] && [ -d "$FS_CONFDIR" ]
+}
+
+find_fs_cli
+if ! locate_dirs; then
+    warn "FreeSWITCH installation not found (каталог модулей: '${FS_MODDIR:-?}', каталог конфигурации: '${FS_CONFDIR:-?}')."
+    warn "Пакет установлен, но файлы в FreeSWITCH не скопированы. Запустите настройку позже:"
+    warn "  sudo FS_PREFIX=/usr/local/freeswitch mod-aa-h323-tr-setup"
+    warn "  или sudo FS_MODDIR=/путь/к/mod FS_CONFDIR=/путь/к/conf mod-aa-h323-tr-setup"
+    exit 0
+fi
+say "каталог модулей:      $FS_MODDIR"
+say "каталог конфигурации: $FS_CONFDIR"
+
+OWNER="$(stat -c '%u:%g' "$FS_CONFDIR" 2>/dev/null || echo 0:0)"
+mkdir -p "$STATE"
+{ echo "FS_MODDIR=$FS_MODDIR"; echo "FS_CONFDIR=$FS_CONFDIR"; echo "FS_CLI=$FS_CLI"; } > "$STATE/install.env"
+
+# 1. модуль (заменяется при каждой установке)
+install -d "$FS_MODDIR"
+install -m 0755 "$SHARE/mod_aa_h323_tr.so" "$FS_MODDIR/mod_aa_h323_tr.so"
+
+# 2. конфигурация: существующие файлы администратора НИКОГДА не перезаписываются
+install -d "$FS_CONFDIR/autoload_configs" "$FS_CONFDIR/dialplan" "$FS_CONFDIR/aa_h323_tr"
+for pair in "conf/aa_h323_tr.conf.xml:autoload_configs/aa_h323_tr.conf.xml" "conf/dialplan-aa_h323_tr.xml:dialplan/aa_h323_tr.xml"; do
+    src="${pair%%:*}"; dst="${pair##*:}"
+    if [ -f "$FS_CONFDIR/$dst" ]; then say "kept existing $FS_CONFDIR/$dst"
+    else install -m 0644 "$SHARE/$src" "$FS_CONFDIR/$dst"; chown "$OWNER" "$FS_CONFDIR/$dst" 2>/dev/null || true; say "created $FS_CONFDIR/$dst"; fi
+done
+install -m 0644 "$SHARE/config/aa_h323_tr.example.json" "$FS_CONFDIR/aa_h323_tr/aa_h323_tr.example.json"
+CFG="$FS_CONFDIR/aa_h323_tr/aa_h323_tr.json"
+NEWCFG=0
+if [ ! -f "$CFG" ]; then
+    install -m 0644 "$SHARE/config/aa_h323_tr.example.json" "$CFG"
+    NEWCFG=1
+    IP="${AA_TR_LOCAL_IP:-}"
+    [ -n "$IP" ] || IP="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}' | head -n1)"
+    [ -n "$IP" ] || IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+    if [ -n "$IP" ]; then
+        local_ip_set "$CFG" "$IP" && say "local.ip = $IP"
+    else
+        warn "не удалось определить IP сервера: впишите local.ip в $CFG вручную"
+    fi
+    if [ -n "${AA_TR_PORT:-}" ]; then
+        local_port_set "$CFG" "$AA_TR_PORT" && say "local.h225_port = $AA_TR_PORT"
+    fi
+else
+    say "kept existing $CFG"
+fi
+chown -R "$OWNER" "$FS_CONFDIR/aa_h323_tr" 2>/dev/null || true
+
+# 3. загрузка модуля при старте FreeSWITCH
+MODULES_XML="$FS_CONFDIR/autoload_configs/modules.conf.xml"
+if [ -f "$MODULES_XML" ]; then
+    if ! grep -q 'mod_aa_h323_tr' "$MODULES_XML"; then
+        sed -i 's#</modules>#  <load module="mod_aa_h323_tr"/>\n</modules>#' "$MODULES_XML"
+        say "в modules.conf.xml добавлена строка загрузки mod_aa_h323_tr"
+    fi
+else
+    warn "$MODULES_XML не найден: добавьте <load module=\"mod_aa_h323_tr\"/> вручную"
+fi
+
+# 4. подключение диалплана (если freeswitch.xml не включает dialplan/*.xml маской)
+if [ -f "$FS_CONFDIR/freeswitch.xml" ] && ! grep -q 'dialplan/\*\.xml' "$FS_CONFDIR/freeswitch.xml" \
+   && [ -f "$FS_CONFDIR/dialplan.xml" ] && ! grep -q 'aa_h323_tr' "$FS_CONFDIR/dialplan.xml"; then
+    sed -i 's#</include>#  <X-PRE-PROCESS cmd="include" data="aa_h323_tr.xml"/>\n</include>#' "$FS_CONFDIR/dialplan.xml"
+    say "в dialplan.xml добавлен include aa_h323_tr.xml"
+fi
+
+echo
+say "готово."
+if [ "$NEWCFG" = 1 ]; then
+    say "создан новый aa_h323_tr.json: проверьте local.ip (и local.h225_port; порт 1720 обычно занят mod_aa_h323) и впишите реальные trunk[]."
+fi
+say "перезапустите FreeSWITCH (systemctl restart freeswitch) либо: fs_cli -x \"load mod_aa_h323_tr\""
+say "проверка: fs_cli -x \"aa_h323_tr status\""
+exit 0

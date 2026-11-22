@@ -1,0 +1,27 @@
+# Модуль H323 trunk в FreeSWITCH (mod_aa_h323_tr)
+# Copyright (c) 2026: Сенашенко Дмитрий.
+# Разработано в Российской Федерации.
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+STATE=/var/lib/mod-aa-h323-tr
+case "$1" in
+remove|purge)
+    if [ -f "$STATE/install.env" ]; then
+        . "$STATE/install.env"
+        rm -f "$FS_MODDIR/mod_aa_h323_tr.so"
+        rm -f "$FS_CONFDIR/aa_h323_tr/aa_h323_tr.example.json"
+        # aa_h323_tr.json, aa_h323_tr.conf.xml и dialplan/aa_h323_tr.xml - файлы администратора: при remove сохраняются
+        if [ -f "$FS_CONFDIR/autoload_configs/modules.conf.xml" ]; then
+            sed -i '/<load module="mod_aa_h323_tr"\/>/d' "$FS_CONFDIR/autoload_configs/modules.conf.xml" || true
+        fi
+        if [ "$1" = purge ]; then
+            rm -f "$FS_CONFDIR/autoload_configs/aa_h323_tr.conf.xml" "$FS_CONFDIR/dialplan/aa_h323_tr.xml" "$FS_CONFDIR/aa_h323_tr/aa_h323_tr.json"
+            rmdir "$FS_CONFDIR/aa_h323_tr" 2>/dev/null || true
+        fi
+        echo "mod-aa-h323-tr: модуль удалён. Перезапустите FreeSWITCH, чтобы выгрузить его из памяти."
+    fi
+    [ "$1" = purge ] && rm -rf "$STATE" /etc/default/mod-aa-h323-tr
+    ;;
+esac
+exit 0

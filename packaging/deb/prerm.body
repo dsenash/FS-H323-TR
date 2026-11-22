@@ -1,0 +1,18 @@
+# Модуль H323 trunk в FreeSWITCH (mod_aa_h323_tr)
+# Copyright (c) 2026: Сенашенко Дмитрий.
+# Разработано в Российской Федерации.
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
+STATE=/var/lib/mod-aa-h323-tr
+case "$1" in
+remove|purge)
+    if [ -f "$STATE/install.env" ]; then
+        . "$STATE/install.env"
+        if [ -n "${FS_CLI:-}" ] && [ -x "$FS_CLI" ]; then
+            "$FS_CLI" -x "unload mod_aa_h323_tr" >/dev/null 2>&1 || true
+        fi
+    fi
+    ;;
+esac
+exit 0

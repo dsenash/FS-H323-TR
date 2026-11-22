@@ -1,0 +1,8 @@
+build/
+*.o
+*.so
+*.deb
+*.tar.gz
+__pycache__/
+fs/.buildstamp
+captures/

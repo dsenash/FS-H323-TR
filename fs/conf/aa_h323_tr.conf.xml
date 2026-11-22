@@ -1,0 +1,28 @@
+<!--
+  Модуль H323 trunk в FreeSWITCH (mod_aa_h323_tr)
+  Copyright (c) 2026: Сенашенко Дмитрий.
+  Разработано в Российской Федерации.
+  This source code is licensed under the MIT license found in the
+  LICENSE file in the root directory of this source tree.
+-->
+
+<!--
+  mod_aa_h323_tr - H.323 trunk to Avaya PBXs
+
+  Install as $FS_CONF_DIR/autoload_configs/aa_h323_tr.conf.xml (`make install-conf` / install.sh do it
+  if nothing is there yet). modules.conf.xml must load module "mod_aa_h323_tr" (install.sh adds it).
+  Trunks, IPs, ports, codecs, number rules - in the JSON file below (see config/aa_h323_tr.example.json).
+-->
+<configuration name="aa_h323_tr.conf" description="H.323 trunk to Avaya PBXs">
+  <settings>
+    <!-- Path to the JSON config (trunks, local ip/port, number rules). Required. -->
+    <param name="config-json" value="$${conf_dir}/aa_h323_tr/aa_h323_tr.json"/>
+
+    <!-- Dialplan module + context for calls ARRIVING from a PBX over the trunk (see dialplan/aa_h323_tr.xml). -->
+    <param name="dialplan" value="XML"/>
+    <param name="context" value="aa_h323_tr"/>
+
+    <!-- Optional: IP of our RTP sockets (announced to the PBX in fastStart). Default: local.ip of the JSON config. -->
+    <!-- <param name="local-rtp-ip" value="192.168.0.6"/> -->
+  </settings>
+</configuration>

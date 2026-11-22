@@ -1,0 +1,44 @@
+<!--
+  Модуль H323 trunk в FreeSWITCH (mod_aa_h323_tr)
+  Copyright (c) 2026: Сенашенко Дмитрий.
+  Разработано в Российской Федерации.
+  This source code is licensed under the MIT license found in the
+  LICENSE file in the root directory of this source tree.
+-->
+
+<!-- aa_h323_tr-dialplan-rev: 1 -->
+<!--
+  mod_aa_h323_tr - sample dialplan context for calls ARRIVING from an Avaya PBX over the H.323 trunk.
+
+  destination_number is the number the PBX dialled AFTER the trunk's in_number_rules were applied
+  (aa_h323_tr.json: strip N digits, add a prefix); caller_id_number is the calling number from the PBX.
+  Further number manipulation (calling/called) is done here, in the FreeSWITCH dialplan.
+
+  A call the OTHER way (FreeSWITCH -> PBX) needs no entry here: bridge to  aa_h323_tr/<trunk>/<number>
+  from any dialplan, e.g.  bridge  aa_h323_tr/cm1/${destination_number}
+
+  Example of the OUTBOUND direction (put it into your own internal context): internal 0xxx -> PBX number 111xxx,
+  the reverse of the in_number_rules example (111xxx -> 0xxx):
+
+    <extension name="to_pbx_cm1">
+      <condition field="destination_number" expression="^0(\d{3})$">
+        <action application="bridge" data="aa_h323_tr/cm1/111$1"/>
+      </condition>
+    </extension>
+-->
+<include>
+  <context name="aa_h323_tr">
+    <extension name="aa_h323_tr_to_internal">
+      <condition field="destination_number" expression="^(\d{1,24})$">
+        <action application="set" data="ringback=${us-ring}"/>
+        <action application="bridge" data="${sofia_contact(${destination_number}@$${domain})}"/>
+      </condition>
+    </extension>
+    <extension name="aa_h323_tr_unroutable">
+      <condition field="destination_number" expression="^(.*)$">
+        <action application="log" data="WARNING aa_h323_tr: no route for trunk call to ${destination_number}"/>
+        <action application="hangup" data="UNALLOCATED_NUMBER"/>
+      </condition>
+    </extension>
+  </context>
+</include>
