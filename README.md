@@ -3,20 +3,9 @@
 [Русская версия](README.ru.md)
 
 A built-in FreeSWITCH module written in pure C (no Python, no third-party libraries) that connects FreeSWITCH
-to Avaya Communication Manager (CM) as an H.323 trunk. It is free software: no licensing, no trial, no limits
+to for example Avaya Communication Manager (CM) as an H.323 trunk. But it should work with other PBX as well. 
+It is free software: no licensing, no trial, no limits
 (MIT license, see [LICENSE](LICENSE)).
-
-## What has been verified
-
-Verified on a test stand (FreeSWITCH installed from packages, CM at 192.168.0.193):
-
-- building and installing with `install.sh`, loading the module into FreeSWITCH;
-- accepting H.225 TCP connections on a dedicated port (1722 by default);
-- the `aa_h323_tr status` command;
-- the service STATUS exchange between the module and CM; the CM trunk group goes `in-service`
-  (provided CM media resources are up, see "Maintenance").
-
-Everything else is still in development; only verified parts are described here.
 
 ## Architecture
 
@@ -136,8 +125,6 @@ In the CM signaling group bound to the trunk:
   run `systemctl restart freeswitch`.
 - Log: the module writes to the FreeSWITCH log (`/var/log/freeswitch/freeswitch.log`); search for `aa_tr` / `aa_h323_tr`. The `logging` block of the JSON is read but not used yet.
 - Port 1720 is busy: it is normally taken by `mod_aa_h323`; set another `local.h225_port` (1722 by default) and use the same port in CM.
-- CM trunk group members stay `out-of-service-NE` while the signaling group is `in-service`: check the CM media resources
-  (`test signaling-group N`, `display errors`, `H323-SGR`/`MEDPRO` entries). On the test stand the cause was media resources not enabled on CM.
 - Developer tests: `make test` (unit tests on vectors from the captures), `make asan`, `make tsan`, `make fs-syntax` (syntax check of the FreeSWITCH glue against our own stubs).
 
 ## License
