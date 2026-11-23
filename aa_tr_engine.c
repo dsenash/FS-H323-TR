@@ -442,6 +442,7 @@ static void handle_frame(conn_t *c, const uint8_t *f, size_t n)
 
     if (pr != 0) {
         if (m.type == AA_TR_RELEASE_COMPLETE) {
+            lg(e, 20, "aa_tr: транк %s: RELEASE COMPLETE от АТС, cause=%d (вызов %.36s)", c->have_trunk ? c->trunk.name : "?", m.cause, call_id);
             ev_add(ev, &nev, EV_HANGUP); ev[nev - 1].cause = m.cause >= 0 ? m.cause : 16;
             c->state = CS_DONE; c->notified = 1;
         } else if (m.type == AA_TR_SETUP && c->incoming && c->state == CS_NEW) {
@@ -487,6 +488,7 @@ static void handle_frame(conn_t *c, const uint8_t *f, size_t n)
         break;
     case AA_TR_RELEASE_COMPLETE:
         if (!c->notified) {
+            lg(e, 20, "aa_tr: транк %s: RELEASE COMPLETE от АТС, cause=%d (вызов %.36s)", c->have_trunk ? c->trunk.name : "?", m.cause, call_id);
             ev_add(ev, &nev, EV_HANGUP);
             ev[nev - 1].cause = m.cause >= 0 ? m.cause : 16;
             c->notified = 1;
@@ -513,6 +515,8 @@ static void conn_finish(conn_t *c)
     snprintf(call_id, sizeof(call_id), "%s", c->call_id);
     if (!c->notified && c->state != CS_DONE && c->have_trunk && c->state != CS_NEW && !c->kill) {
         /* соединение оборвалось без RELEASE COMPLETE */
+        lg(e, 30, "aa_tr: транк %s: соединение с АТС оборвано без RELEASE COMPLETE (%s), отбой cause=%d (вызов %.36s)",
+           c->trunk.name, c->peer_end ? "закрыто АТС" : "ошибка сети", c->peer_end ? 16 : 38, call_id);
         ev_add(ev, &nev, EV_HANGUP);
         ev[0].cause = c->peer_end ? 16 : 38;
         c->notified = 1;
