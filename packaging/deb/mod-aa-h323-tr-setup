@@ -83,7 +83,7 @@ for pair in "conf/aa_h323_tr.conf.xml:autoload_configs/aa_h323_tr.conf.xml" "con
     else install -m 0644 "$SHARE/$src" "$FS_CONFDIR/$dst"; chown "$OWNER" "$FS_CONFDIR/$dst" 2>/dev/null || true; say "created $FS_CONFDIR/$dst"; fi
 done
 install -m 0644 "$SHARE/config/aa_h323_tr.example.json" "$FS_CONFDIR/aa_h323_tr/aa_h323_tr.example.json"
-install -m 0644 "$SHARE/conf/dialplan-aa_h323_tr_outbound.example.xml" "$FS_CONFDIR/aa_h323_tr/dialplan-outbound.example.xml"
+install -m 0644 "$SHARE/config/freeswitch-outbound.example.xml" "$FS_CONFDIR/aa_h323_tr/dialplan-outbound.example.xml"
 CFG="$FS_CONFDIR/aa_h323_tr/aa_h323_tr.json"
 NEWCFG=0
 if [ ! -f "$CFG" ]; then

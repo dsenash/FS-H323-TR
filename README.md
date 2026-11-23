@@ -125,7 +125,7 @@ aa_h323_tr/<trunk>/<number>
 Setup:
 
 1. Make sure `fs_cli -x "aa_h323_tr status"` shows the trunk `in service`.
-2. Add an extension to your dialplan (normally `/etc/freeswitch/dialplan/default/`, context `default`). Ready-made examples are installed as
+2. Add an extension to your dialplan (normally `/etc/freeswitch/dialplan/default/`, context `default`). Ready-made examples are in `config/freeswitch-outbound.example.xml` and installed as
    `aa_h323_tr/dialplan-outbound.example.xml` in the FreeSWITCH configuration directory (inactive until you copy an extension from it).
 3. `fs_cli -x "reloadxml"`.
 

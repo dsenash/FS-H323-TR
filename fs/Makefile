@@ -198,5 +198,5 @@ endif
 	test -f $(FS_CONFDIR)/dialplan/aa_h323_tr.xml || \
 	  install -m644 conf/dialplan-aa_h323_tr.xml $(FS_CONFDIR)/dialplan/aa_h323_tr.xml
 	install -d $(FS_CONFDIR)/aa_h323_tr
-	install -m644 conf/dialplan-aa_h323_tr_outbound.example.xml $(FS_CONFDIR)/aa_h323_tr/dialplan-outbound.example.xml
+	install -m644 ../config/freeswitch-outbound.example.xml $(FS_CONFDIR)/aa_h323_tr/dialplan-outbound.example.xml
 	@echo "Installed sample config (only where nothing existed yet) - review and edit before use."

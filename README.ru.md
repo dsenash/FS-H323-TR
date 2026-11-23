@@ -125,7 +125,7 @@ aa_h323_tr/<транк>/<номер>
 
 1. Убедитесь, что `fs_cli -x "aa_h323_tr status"` показывает транк `in service`.
 2. Добавьте extension в свой диалплан (обычно `/etc/freeswitch/dialplan/default/`, контекст `default`). Готовые примеры
-   установлены в `aa_h323_tr/dialplan-outbound.example.xml` каталога конфигурации FreeSWITCH (файл неактивен, пока вы не скопируете из него extension).
+   лежат в `config/freeswitch-outbound.example.xml` и установлены в `aa_h323_tr/dialplan-outbound.example.xml` каталога конфигурации FreeSWITCH (файл неактивен, пока вы не скопируете из него extension).
 3. `fs_cli -x "reloadxml"`.
 
 Минимальный пример — префикс выхода `9`, номер после него передаётся на АТС без изменений:
