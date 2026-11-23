@@ -1,9 +1,9 @@
-# mod_aa_h323_tr — H.323-транк FreeSWITCH ↔ Avaya Communication Manager
+# mod_aa_h323_tr — H.323-транк FreeSWITCH ↔ Avaya Communication Manager (или любая другая АТС)
 
 [English version](README.md)
 
 Встроенный модуль FreeSWITCH на чистом C (без Python и сторонних библиотек), который подключает FreeSWITCH
-например к Avaya Communication Manager (CM) как H.323-транк. Модуль свободный: лицензирования, trial и ограничений нет
+например к Avaya Communication Manager (CM) как H.323-транк. (Но работать должно с любой АТС, просто разрабатывалось и проверялось на Авайе). Модуль свободный: лицензирования, trial и ограничений нет
 (лицензия MIT, см. [LICENSE](LICENSE)). Формат H323 базирован на Avaya, но должен работать и с другими станциями.
 
 ## Архитектура
@@ -53,7 +53,7 @@
 | `trunk[].in_number_rules[]` | правила для номера ВХОДЯЩЕГО В FreeSWITCH вызова (АТС → FreeSWITCH) `{match, strip, add}`, срабатывает первое подходящее |
 | `trunk[].out_number_rules[]` | правила для номера ИСХОДЯЩЕГО ИЗ FreeSWITCH вызова (FreeSWITCH → АТС), тот же формат `{match, strip, add}` |
 
-## Требования
+## Требования для самостоятельной сборки (Ниже установка через deb пакет готовой сборки)
 
 - FreeSWITCH с заголовками для сборки модулей (`freeswitch-dev` либо установка из исходников);
 - `gcc`, `make`, `pkg-config`, `awk`; для установки — root.
