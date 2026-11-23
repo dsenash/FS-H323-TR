@@ -15,7 +15,7 @@
  *
  * Dial string (FreeSWITCH -> PBX):   aa_h323_tr/<trunk>/<number>        e.g.  bridge  aa_h323_tr/cm1/102
  * Calls from a PBX (PBX -> FreeSWITCH) are launched into the dialplan context "context" of aa_h323_tr.conf.xml
- * (default "aa_h323_tr"); destination_number is the called number AFTER the trunk's in_number_rules.
+ * (default "aa_h323_tr"); destination_number is the called number AFTER the trunk's in_number_rules (incoming INTO FreeSWITCH; out_number_rules apply to calls going OUT of FreeSWITCH).
  *
  * Media: the PBX gateways exchange RTP directly with FreeSWITCH. We announce our RTP address/port in the H.323 fastStart
  * and send RTP to the address the far side announces in its own fastStart.
@@ -671,7 +671,7 @@ switch_io_routines_t aa_tr_io_routines = {
 	"aa_h323_tr status\n" \
 	"aa_h323_tr trunks\n" \
 	"aa_h323_tr reload\n" \
-	"aa_h323_tr number <trunk> <called>   (check the in_number_rules of a trunk)\n"
+	"aa_h323_tr number <trunk> <number> [in|out]   (check number rules: in = from PBX into FreeSWITCH (default), out = from FreeSWITCH to PBX)\n"
 
 SWITCH_STANDARD_API(aa_h323_tr_api)
 {
@@ -725,8 +725,11 @@ SWITCH_STANDARD_API(aa_h323_tr_api)
 		if (!t) {
 			stream->write_function(stream, "-ERR no such trunk\n");
 		} else {
-			hit = aa_tr_number_in(t, argv[2], out, sizeof(out));
-			stream->write_function(stream, "%s -> %s%s\n", argv[2], out, hit ? "" : "  (no rule matched)");
+			int outdir = (argc >= 4 && !strcasecmp(argv[3], "out"));
+
+			hit = outdir ? aa_tr_number_out(t, argv[2], out, sizeof(out)) : aa_tr_number_in(t, argv[2], out, sizeof(out));
+			stream->write_function(stream, "%s [%s] %s -> %s%s\n", t->name, outdir ? "out: FreeSWITCH -> PBX" : "in: PBX -> FreeSWITCH", argv[2], out,
+								   hit ? "" : "  (no rule matched)");
 		}
 		switch_mutex_unlock(G.mutex);
 	} else {

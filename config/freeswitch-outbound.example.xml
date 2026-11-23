@@ -16,7 +16,10 @@
 
   Для FreeSWITCH H.323-транк - это ВНЕШНИЙ вызов: оператор bridge с dial string
       aa_h323_tr/<транк>/<номер>
-  Номер - ровно то, что получит АТС как called party. Calling number/name берутся из канала
+  Номер из dial string проходит out_number_rules транка (aa_h323_tr.json) и только затем уходит на АТС;
+  если подходящего правила нет - АТС получает ровно то, что указано в bridge.
+  ВНИМАНИЕ: in_number_rules - это ДРУГОЕ: они преобразуют номер ВХОДЯЩЕГО в FreeSWITCH вызова (АТС -> FreeSWITCH)
+  и на исходящие НЕ действуют. Calling number/name берутся из канала
   (caller_id_number / caller_id_name, т.е. effective_caller_id_* или outbound_caller_id_*).
   Нет такого транка - вызов завершается NO_ROUTE_DESTINATION; АТС отбила - причина отбоя АТС
   возвращается в FreeSWITCH как hangup cause.
@@ -35,11 +38,13 @@
     </condition>
   </extension>
 
-  <!-- 2. Внутренние 0xxx -> номера АТС 111xxx (обратное к in_number_rules 111xxx -> 0xxx) -->
+  <!-- 2. Внутренние 0xxx: номер уходит в транк как есть, а в 111xxx его превращает out_number_rules транка
+       (aa_h323_tr.json: {"match":"0","strip":1,"add":"111"}). Преобразовывать номер можно ЛИБО здесь (в диалплане),
+       ЛИБО в out_number_rules - не делайте и то и другое для одного номера. -->
   <extension name="to_pbx_cm1_0xxx">
-    <condition field="destination_number" expression="^0(\d{3})$">
+    <condition field="destination_number" expression="^(0\d{3})$">
       <action application="set" data="hangup_after_bridge=true"/>
-      <action application="bridge" data="aa_h323_tr/cm1/111$1"/>
+      <action application="bridge" data="aa_h323_tr/cm1/$1"/>
     </condition>
   </extension>
 

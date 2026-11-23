@@ -59,6 +59,31 @@ static int ipv4_ok(const char *s)
     return s && s[0] && inet_pton(AF_INET, s, &a) == 1;
 }
 
+static int parse_rules(const aa_json_t *j, const char *key, const aa_tr_trunk_t *t, aa_tr_rule_t *rules, int *nrules, char *err, size_t ec)
+{
+    long long v;
+    int r;
+    const aa_json_t *rl = aa_json_member(j, key);
+    if (!rl) return 0;
+    if (rl->type != AA_J_ARR) { seterr(err, ec, "trunk '%s': %s должен быть массивом", t->name, key); return -1; }
+    if (rl->n > AA_TR_MAX_RULES) { seterr(err, ec, "trunk '%s': %s: правил больше %d", t->name, key, AA_TR_MAX_RULES); return -1; }
+    for (size_t i = 0; i < rl->n; i++) {
+        const aa_json_t *o = rl->items[i];
+        aa_tr_rule_t *ru = &rules[*nrules];
+        if (o->type != AA_J_OBJ) { seterr(err, ec, "trunk '%s': %s: правило %zu не объект", t->name, key, i + 1); return -1; }
+        const char *m = jstr(o, "match"), *a = jstr(o, "add");
+        if ((m && (strlen(m) >= sizeof(ru->match) || !digits_ok(m))) || (a && (strlen(a) >= sizeof(ru->add) || !digits_ok(a)))) {
+            seterr(err, ec, "trunk '%s': %s: правило %zu: match/add - только цифры и * # A-D +", t->name, key, i + 1); return -1;
+        }
+        cpy(ru->match, sizeof(ru->match), m); cpy(ru->add, sizeof(ru->add), a);
+        r = jint(o, "strip", &v);
+        if (r < 0 || (r == 1 && (v < 0 || v > 32))) { seterr(err, ec, "trunk '%s': %s: правило %zu: strip 0..32", t->name, key, i + 1); return -1; }
+        ru->strip = (r == 1) ? (int) v : 0;
+        (*nrules)++;
+    }
+    return 0;
+}
+
 static int parse_trunk(const aa_json_t *j, int idx, aa_tr_trunk_t *t, char *err, size_t ec)
 {
     memset(t, 0, sizeof(*t));
@@ -91,25 +116,8 @@ static int parse_trunk(const aa_json_t *j, int idx, aa_tr_trunk_t *t, char *err,
     r = jint(j, "lines", &v);
     if (r < 0 || (r == 1 && (v < 0 || v > 100000))) { seterr(err, ec, "trunk '%s': lines должно быть 0..100000 (0 = без ограничения)", t->name); return -1; }
     if (r == 1) t->lines = (int) v;
-    const aa_json_t *rl = aa_json_member(j, "in_number_rules");
-    if (rl) {
-        if (rl->type != AA_J_ARR) { seterr(err, ec, "trunk '%s': in_number_rules должен быть массивом", t->name); return -1; }
-        if (rl->n > AA_TR_MAX_RULES) { seterr(err, ec, "trunk '%s': правил больше %d", t->name, AA_TR_MAX_RULES); return -1; }
-        for (size_t i = 0; i < rl->n; i++) {
-            const aa_json_t *o = rl->items[i];
-            aa_tr_rule_t *ru = &t->rules[t->nrules];
-            if (o->type != AA_J_OBJ) { seterr(err, ec, "trunk '%s': правило %zu не объект", t->name, i + 1); return -1; }
-            const char *m = jstr(o, "match"), *a = jstr(o, "add");
-            if ((m && (strlen(m) >= sizeof(ru->match) || !digits_ok(m))) || (a && (strlen(a) >= sizeof(ru->add) || !digits_ok(a)))) {
-                seterr(err, ec, "trunk '%s': правило %zu: match/add - только цифры и * # A-D +", t->name, i + 1); return -1;
-            }
-            cpy(ru->match, sizeof(ru->match), m); cpy(ru->add, sizeof(ru->add), a);
-            r = jint(o, "strip", &v);
-            if (r < 0 || (r == 1 && (v < 0 || v > 32))) { seterr(err, ec, "trunk '%s': правило %zu: strip 0..32", t->name, i + 1); return -1; }
-            ru->strip = (r == 1) ? (int) v : 0;
-            t->nrules++;
-        }
-    }
+    if (parse_rules(j, "in_number_rules", t, t->rules, &t->nrules, err, ec) != 0) return -1;
+    if (parse_rules(j, "out_number_rules", t, t->out_rules, &t->nout_rules, err, ec) != 0) return -1;
     return 0;
 }
 
@@ -182,11 +190,11 @@ int aa_tr_config_load(const char *path, aa_tr_config_t *c, char *err, size_t ec)
     return r;
 }
 
-int aa_tr_number_in(const aa_tr_trunk_t *t, const char *num, char *out, size_t cap)
+static int apply_rules(const aa_tr_rule_t *rules, int nrules, const char *num, char *out, size_t cap)
 {
     size_t nl = strlen(num);
-    for (int i = 0; i < t->nrules; i++) {
-        const aa_tr_rule_t *r = &t->rules[i];
+    for (int i = 0; i < nrules; i++) {
+        const aa_tr_rule_t *r = &rules[i];
         size_t ml = strlen(r->match);
         if (ml && strncmp(num, r->match, ml) != 0) continue;
         if ((size_t) r->strip > nl) continue;          /* номер короче, чем надо убрать — правило не подходит */
@@ -195,6 +203,18 @@ int aa_tr_number_in(const aa_tr_trunk_t *t, const char *num, char *out, size_t c
     }
     snprintf(out, cap, "%s", num);
     return 0;
+}
+
+/* ВХОДЯЩИЙ в FreeSWITCH номер (АТС -> FS): in_number_rules */
+int aa_tr_number_in(const aa_tr_trunk_t *t, const char *num, char *out, size_t cap)
+{
+    return apply_rules(t->rules, t->nrules, num, out, cap);
+}
+
+/* ИСХОДЯЩИЙ из FreeSWITCH номер (FS -> АТС): out_number_rules */
+int aa_tr_number_out(const aa_tr_trunk_t *t, const char *num, char *out, size_t cap)
+{
+    return apply_rules(t->out_rules, t->nout_rules, num, out, cap);
 }
 
 const aa_tr_trunk_t *aa_tr_find_trunk_by_ip(const aa_tr_config_t *c, const char *ip)

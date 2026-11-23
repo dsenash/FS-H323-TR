@@ -38,7 +38,9 @@ typedef struct {
     char codec[8];      /* "PCMA" | "PCMU" */
     int lines;          /* 0 — без ограничения */
     int nrules;
-    aa_tr_rule_t rules[AA_TR_MAX_RULES];
+    aa_tr_rule_t rules[AA_TR_MAX_RULES];          /* in_number_rules: номер, ПРИШЕДШИЙ от АТС в FreeSWITCH */
+    int nout_rules;
+    aa_tr_rule_t out_rules[AA_TR_MAX_RULES];      /* out_number_rules: номер, УХОДЯЩИЙ из FreeSWITCH в АТС */
 } aa_tr_trunk_t;
 
 typedef struct {
@@ -57,6 +59,7 @@ int aa_tr_config_load(const char *path, aa_tr_config_t *c, char *err, size_t err
 /* Входящий номер АТС -> внутренний номер по правилам транка. Возвращает 1, если сработало правило; 0 — номер не менялся.
  * out всегда заполняется (при нехватке места усекается). */
 int aa_tr_number_in(const aa_tr_trunk_t *t, const char *num, char *out, size_t cap);
+int aa_tr_number_out(const aa_tr_trunk_t *t, const char *num, char *out, size_t cap);
 
 /* Транк по IP источника входящего соединения (IPv4, текстом); NULL — нет. */
 const aa_tr_trunk_t *aa_tr_find_trunk_by_ip(const aa_tr_config_t *c, const char *ip);

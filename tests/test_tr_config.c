@@ -41,6 +41,16 @@ int main(void)
     aa_tr_number_in(t, "4567", o, sizeof(o)); CHECK(!strcmp(o, "967"), "rule2 any %s", o);
     aa_tr_number_in(t, "5", o, sizeof(o)); CHECK(!strcmp(o, "*5"), "rule3 when strip>len skipped %s", o);
     aa_tr_number_in(t, "12345", o, 4); CHECK(!strcmp(o, "934"), "truncation %s", o);
+    /* out_number_rules: отдельный набор, не смешивается с in_number_rules */
+    CHECK(parse("{\"trunk\":[{\"ip\":\"10.1.1.1\",\"in_number_rules\":[{\"match\":\"111\",\"strip\":3,\"add\":\"0\"}],"
+                "\"out_number_rules\":[{\"match\":\"9111\",\"strip\":4,\"add\":\"\"},{\"match\":\"0\",\"strip\":1,\"add\":\"111\"}]}]}", &c, err) == 0, "out rules parse: %s", err);
+    t = &c.trunk[0];
+    CHECK(t->nrules == 1 && t->nout_rules == 2, "counts in=%d out=%d", t->nrules, t->nout_rules);
+    CHECK(aa_tr_number_out(t, "9111101", o, sizeof(o)) == 1 && !strcmp(o, "101"), "out 9111101 -> %s", o);
+    CHECK(aa_tr_number_out(t, "0123", o, sizeof(o)) == 1 && !strcmp(o, "111123"), "out 0123 -> %s", o);
+    CHECK(aa_tr_number_out(t, "555", o, sizeof(o)) == 0 && !strcmp(o, "555"), "out no match unchanged");
+    CHECK(aa_tr_number_in(t, "0123", o, sizeof(o)) == 0 && !strcmp(o, "0123"), "in rules do not touch out numbers");
+    CHECK(parse("{\"trunk\":[{\"ip\":\"10.1.1.1\",\"out_number_rules\":[{\"strip\":99}]}]}", &c, err) != 0, "bad out rule rejected");
     /* ошибки */
     const char *bad[] = {
         "{}", "{\"trunk\":{}}", "{\"trunk\":[{}]}", "{\"trunk\":[{\"ip\":\"999.1.1.1\"}]}", "{\"trunk\":[{\"ip\":\"10.1.1.1\",\"port\":0}]}",

@@ -184,6 +184,9 @@ int main(void)
     CHECK(aa_tr_engine_start(ey, err, sizeof(err)) == 0, "Y start: %s", err);
     int yport = aa_tr_engine_port(ey);
     mkcfg(&cx, "y", yport, "PCMA", 100, NULL, 0, "");
+    /* out_number_rules X: 9111xxx -> 111xxx (префикс выхода 9 убирается на исходящем ИЗ FreeSWITCH) */
+    snprintf(cx.trunk[0].out_rules[0].match, sizeof(cx.trunk[0].out_rules[0].match), "9111");
+    cx.trunk[0].out_rules[0].strip = 1; cx.trunk[0].nout_rules = 1;
     aa_tr_host_t htx = mkhost(&hx);
     aa_tr_engine_t *ex = aa_tr_engine_new(&cx, &htx);
     CHECK(aa_tr_engine_start(ex, err, sizeof(err)) == 0, "X start: %s", err);
@@ -191,9 +194,9 @@ int main(void)
     /* порт X нужен Y как trunk-порт для исходящих (в этом тесте Y не звонит) */
 
     printf("-- 1: исходящий X -> Y, ответ, DTMF, отбой X\n");
-    CHECK(aa_tr_originate(ex, "y", "11111111-1111-4111-8111-111111111111", "101", "Alice", "111555", "127.0.0.1", 20000) == 0, "originate");
+    CHECK(aa_tr_originate(ex, "y", "11111111-1111-4111-8111-111111111111", "101", "Alice", "9111555", "127.0.0.1", 20000) == 0, "originate");
     CHECK(wait_ev(&hy, "IN ", 3000), "Y: входящий");
-    CHECK(!strcmp(hy.last_called, "0555"), "правило номера: %s", hy.last_called);
+    CHECK(!strcmp(hy.last_called, "0555"), "out-правило X (9111555->111555) + in-правило Y (111555->0555): %s", hy.last_called);
     CHECK(!strcmp(hy.last_calling, "101") && !strcmp(hy.last_name, "Alice"), "calling %s / name %s", hy.last_calling, hy.last_name);
     CHECK(hy.codec == AA_TR_CODEC_A && hy.media_port == 20000 && !strcmp(hy.media_ip, "127.0.0.1"), "media %s:%d codec %u", hy.media_ip, hy.media_port, hy.codec);
     CHECK(wait_ev(&hx, "MEDIA 127.0.0.1:30000", 3000), "X: media от Y");

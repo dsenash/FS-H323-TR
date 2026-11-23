@@ -51,7 +51,8 @@ and reports availability over it: right after connecting it sends a Q.931 STATUS
 | `trunk[].ip`, `trunk[].port` | CM address and port (default 1720) |
 | `trunk[].codec` | `PCMA` (G.711 A-law) or `PCMU` (G.711 mu-law) |
 | `trunk[].lines` | number of lines (default 100, 0 = unlimited) |
-| `trunk[].in_number_rules[]` | inbound number rewrite rules `{match, strip, add}`; the first matching rule wins |
+| `trunk[].in_number_rules[]` | rules for the number of a call coming INTO FreeSWITCH (PBX → FreeSWITCH) `{match, strip, add}`; the first matching rule wins |
+| `trunk[].out_number_rules[]` | rules for the number of a call going OUT OF FreeSWITCH (FreeSWITCH → PBX), same `{match, strip, add}` format |
 
 ## Requirements
 
@@ -140,11 +141,26 @@ Minimal example — exit prefix `9`, the digits after it go to the PBX unchanged
 </extension>
 ```
 
-Dialling 9111234 from an internal phone reaches the PBX as 111234. The example file also contains internal `0xxx` → `111xxx`
+Dialling 9111234 from an internal phone reaches the PBX as 111234. The example file also contains internal `0xxx` (converted to `111xxx` by `out_number_rules`)
 conversion and sequential failover over two trunks (`bridge aa_h323_tr/cm1/$1|aa_h323_tr/cm2/$1`).
 An outgoing call over a single trunk has been verified; the other variants are templates, test them on your PBX.
 
-Calls arriving from the PBX and `in_number_rules` are described in `aa_h323_tr.json` and `dialplan/aa_h323_tr.xml` (context `aa_h323_tr`).
+### Number rules: inbound and outbound are different rules
+
+| | `in_number_rules` | `out_number_rules` |
+|---|---|---|
+| Direction | PBX → FreeSWITCH (the call comes INTO FreeSWITCH) | FreeSWITCH → PBX (the call goes OUT OF FreeSWITCH) |
+| Applied to | the called number sent by the PBX | the number from `bridge aa_h323_tr/<trunk>/<number>` |
+| When | before the FreeSWITCH dialplan (context `aa_h323_tr`) | after the dialplan, before sending to the PBX |
+| Example | `{"match":"111","strip":3,"add":"0"}`: the PBX dialled 111123 → the dialplan gets 0123 | `{"match":"0","strip":1,"add":"111"}`: `bridge aa_h323_tr/cm1/0123` → the PBX receives 111123 |
+
+Rules of each set are checked in order, the first matching one wins: `match` — the digits the number must start with (empty — any),
+`strip` — how many leading digits to remove, `add` — what to prepend instead. No matching rule — the number is unchanged.
+Inbound rules do not apply to outgoing calls and vice versa. The calling number is not changed by rules — do that in the dialplan.
+Convert a number either in the dialplan or in `out_number_rules`; do not do both for the same number.
+Check: `fs_cli -x "aa_h323_tr number cm1 0123 out"` and `fs_cli -x "aa_h323_tr number cm1 111123 in"`.
+
+Calls arriving from the PBX are described in `aa_h323_tr.json` and `dialplan/aa_h323_tr.xml` (context `aa_h323_tr`).
 
 ## CM setup
 

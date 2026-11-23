@@ -1038,6 +1038,9 @@ int aa_tr_originate(aa_tr_engine_t *e, const char *trunk, const char *call_id, c
     }
     if (t->lines > 0 && active_calls_locked(e, t->name) >= t->lines) { rc = 34; goto out; }
     if (e->nconn >= MAX_CONNS || !called || !called[0]) { rc = 34; goto out; }
+    char called_out[64];
+    aa_tr_number_out(t, called, called_out, sizeof(called_out));   /* out_number_rules: номер, уходящий ИЗ FreeSWITCH */
+    if (!called_out[0]) { rc = 28; goto out; }
     c = calloc(1, sizeof(*c));
     if (!c) { rc = 41; goto out; }
     c->e = e; c->fd = -1; c->incoming = 0; c->state = CS_OUT_NEW;
@@ -1046,7 +1049,7 @@ int aa_tr_originate(aa_tr_engine_t *e, const char *trunk, const char *call_id, c
     snprintf(c->peer_ip, sizeof(c->peer_ip), "%s", t->ip);
     snprintf(c->o_calling, sizeof(c->o_calling), "%s", calling ? calling : "");
     snprintf(c->o_calling_name, sizeof(c->o_calling_name), "%s", calling_name ? calling_name : "");
-    snprintf(c->o_called, sizeof(c->o_called), "%s", called);
+    snprintf(c->o_called, sizeof(c->o_called), "%s", called_out);
     snprintf(c->rtp_ip, sizeof(c->rtp_ip), "%s", rtp_ip ? rtp_ip : "");
     c->rtp_port = rtp_port;
     c->codec = codec_bit(t->codec);
