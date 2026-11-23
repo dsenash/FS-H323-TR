@@ -5,10 +5,10 @@
     "_note": "ip = IP ЭТОГО сервера FreeSWITCH: на нём модуль слушает H.225 (TCP) и это адрес, который он сообщает АТС для RTP и сигнализации. h225_port - необязательный ключ: порт, на котором модуль принимает вызовы от АТС (по умолчанию 1722; 1720 обычно занят mod_aa_h323). На CM в сигнальной группе укажите этот порт как Far-end Listen Port."
   },
   "identity": {
-    "product": "Avaya Multivantage",
-    "version": "Adapter_3.5.8",
+    "product": "FS-AA-H323-TR",
+    "version": "0.0.X",
     "display": "FreeSWITCH",
-    "_note": "Как модуль представляется АТС в H.225 (vendor productId / versionId) и какой Display передаёт в SETUP/CONNECT. Значения product/version - те, с которыми эмулятор CM на стенде работал с реальным CM; можно заменить на свои."
+    "_note": "Как модуль представляется АТС в H.225 (vendor productId / versionId) и какой Display передаёт в SETUP/CONNECT. product = FS-AA-H323-TR; version = 0.0.N, где N - номер сборки модуля (подставляется автоматически при каждой сборке; в исходном config/ стоит 0.0.X). Значения можно заменить на свои."
   },
   "trunk": [
     {

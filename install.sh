@@ -66,8 +66,8 @@ step "4/7  aa_h323_tr.json (local.ip - IP ЭТОГО сервера; local.h225_
 # ---------------------------------------------------------------------
 mkdir -p "$(dirname "$CONFIG_JSON")"
 if [ ! -f "$CONFIG_JSON" ]; then
-	cp ../config/aa_h323_tr.example.json "$CONFIG_JSON"
-	ok "создан $CONFIG_JSON из config/aa_h323_tr.example.json"
+	cp ../build/aa_h323_tr.example.json "$CONFIG_JSON"
+	ok "создан $CONFIG_JSON из примера (версия 0.0.<номер сборки>)"
 else
 	ok "найден $CONFIG_JSON - транки и правила номеров сохраняются, правятся только local.ip и local.h225_port"
 fi

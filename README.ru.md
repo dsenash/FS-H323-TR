@@ -25,7 +25,7 @@
 | `aa_tr_msg.c/h`, `aa_tr_tpl.h` | сборка и разбор сообщений Q.931/H.225.0/H.245 по шаблонам из реальных дампов обмена с CM |
 | `aa_tr_config.c/h`, `aa_json.c/h`, `aa_smap.c/h` | разбор JSON-конфигурации |
 
-Шаблоны сообщений (`aa_tr_tpl.h`) генерирует `tools/gen_tr.py` из дампов обмена (сами дампы не публикуются; сгенерированные файлы лежат в репозитории).
+Шаблоны сообщений (`aa_tr_tpl.h`) генерирует `tools/gen_tr.py` из дампов обмена с CM. Сами дампы в исходники не входят; каталог с ними задаётся переменной `AA_TR_CAPTURES`.
 
 **Listener.** Модуль слушает TCP `local.ip:local.h225_port`. Если порт занят, модуль всё равно загружается:
 в журнале пишется предупреждение, `aa_h323_tr status` показывает `NOT LISTENING (...)`, повтор bind — раз в 5 секунд.
@@ -45,7 +45,7 @@
 |------|----------|
 | `local.ip` | IP **этого** сервера FreeSWITCH (на нём модуль слушает и от его имени сообщает адрес CM) |
 | `local.h225_port` | порт приёма H.225; необязателен, по умолчанию 1722 |
-| `identity.product`, `identity.version`, `identity.display` | как модуль представляется CM |
+| `identity.product`, `identity.version`, `identity.display` | как модуль представляется CM; в примере `FS-AA-H323-TR` / `0.0.N`, где N — номер сборки, подставляется при каждой сборке (`aa_h323_tr status` показывает `build 0.0.N`) |
 | `trunk[].name` | имя транка |
 | `trunk[].ip`, `trunk[].port` | адрес CM и порт (по умолчанию 1720) |
 | `trunk[].codec` | `PCMA` (G.711A) или `PCMU` (G.711μ) |
@@ -107,6 +107,43 @@ sudo apt install ./mod-aa-h323-tr_1.0.0_amd64.deb
 
 Удаление: `apt remove mod-aa-h323-tr` выгружает и удаляет модуль, но сохраняет конфигурацию администратора; `apt purge` удаляет и её.
 После установки и удаления перезапустите FreeSWITCH или выполните `fs_cli -x "load mod_aa_h323_tr"`.
+
+## Маршрутизация исходящих вызовов FreeSWITCH → АТС
+
+Для FreeSWITCH H.323-транк — это внешнее направление: вызов уходит оператором `bridge` с dial string
+
+```
+aa_h323_tr/<транк>/<номер>
+```
+
+- `<транк>` — поле `name` транка в `aa_h323_tr.json` (в примере `cm1`);
+- `<номер>` — то, что АТС получит как called party number; преобразование номера выполняет диалплан FreeSWITCH;
+- calling number и имя берутся из канала (`caller_id_number`, `caller_id_name`; можно задать через `effective_caller_id_*`);
+- неизвестный транк даёт отбой `NO_ROUTE_DESTINATION`; причина отбоя АТС возвращается в FreeSWITCH как hangup cause.
+
+Порядок настройки:
+
+1. Убедитесь, что `fs_cli -x "aa_h323_tr status"` показывает транк `in service`.
+2. Добавьте extension в свой диалплан (обычно `/etc/freeswitch/dialplan/default/`, контекст `default`). Готовые примеры
+   установлены в `aa_h323_tr/dialplan-outbound.example.xml` каталога конфигурации FreeSWITCH (файл неактивен, пока вы не скопируете из него extension).
+3. `fs_cli -x "reloadxml"`.
+
+Минимальный пример — префикс выхода `9`, номер после него передаётся на АТС без изменений:
+
+```xml
+<extension name="to_pbx_cm1">
+  <condition field="destination_number" expression="^9(\d{3,15})$">
+    <action application="set" data="hangup_after_bridge=true"/>
+    <action application="bridge" data="aa_h323_tr/cm1/$1"/>
+  </condition>
+</extension>
+```
+
+Вызов 9111234 с внутреннего телефона уйдёт на АТС как 111234. В файле-примере есть ещё варианты: преобразование внутренних
+`0xxx` → `111xxx` и последовательный перебор двух транков (`bridge aa_h323_tr/cm1/$1|aa_h323_tr/cm2/$1`).
+Проверен исходящий вызов через один транк; остальные варианты — шаблоны, проверьте их на своей АТС.
+
+Входящие от АТС и `in_number_rules` описаны в `aa_h323_tr.json` и `dialplan/aa_h323_tr.xml` (контекст `aa_h323_tr`).
 
 ## Настройка CM
 

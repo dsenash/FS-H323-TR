@@ -10,7 +10,7 @@ remove|purge)
     if [ -f "$STATE/install.env" ]; then
         . "$STATE/install.env"
         rm -f "$FS_MODDIR/mod_aa_h323_tr.so"
-        rm -f "$FS_CONFDIR/aa_h323_tr/aa_h323_tr.example.json"
+        rm -f "$FS_CONFDIR/aa_h323_tr/aa_h323_tr.example.json" "$FS_CONFDIR/aa_h323_tr/dialplan-outbound.example.xml"
         # aa_h323_tr.json, aa_h323_tr.conf.xml и dialplan/aa_h323_tr.xml - файлы администратора: при remove сохраняются
         if [ -f "$FS_CONFDIR/autoload_configs/modules.conf.xml" ]; then
             sed -i '/<load module="mod_aa_h323_tr"\/>/d' "$FS_CONFDIR/autoload_configs/modules.conf.xml" || true

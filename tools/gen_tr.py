@@ -36,7 +36,7 @@ P_GUID, P_IP, P_RTP, P_RTCP, P_SIGIP, P_SIGPORT, P_X2, P_CODEC = 1, 2, 3, 4, 5, 
 def frames(fn):
     """[(connkey, src_last_octet, frame_bytes)] в порядке следования."""
     out = []
-    for n, t, lt, fr in read(os.path.join(ROOT, 'captures', fn)):
+    for n, t, lt, fr in read(os.path.join(os.environ.get('AA_TR_CAPTURES', os.path.join(ROOT, 'captures')), fn)):
         r = parse(fr, lt)
         if not r or r[0] != 'tcp' or not r[6] or 1720 not in (r[2], r[4]):
             continue

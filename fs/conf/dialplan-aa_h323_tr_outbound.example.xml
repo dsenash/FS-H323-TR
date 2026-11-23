@@ -1,0 +1,54 @@
+<!--
+  Модуль H323 trunk в FreeSWITCH (mod_aa_h323_tr)
+  Copyright (c) 2026: Сенашенко Дмитрий.
+  Разработано в Российской Федерации.
+  This source code is licensed under the MIT license found in the
+  LICENSE file in the root directory of this source tree.
+-->
+
+<!--
+  ПРИМЕР маршрутизации ИСХОДЯЩИХ вызовов FreeSWITCH -> АТС Avaya (CM) через H.323-транк.
+  Файл НЕ активен: лежит вне dialplan/ и не подключается сам. Чтобы использовать:
+    1. скопируйте нужные <extension> в свой контекст (в стандартной поставке FreeSWITCH -
+       /etc/freeswitch/dialplan/default/*.xml, контекст "default"; для внешних/public-вызовов - свой контекст);
+    2. подправьте имя транка (cm1 - это "name" из aa_h323_tr.json) и шаблоны номеров;
+    3. fs_cli: reloadxml
+
+  Для FreeSWITCH H.323-транк - это ВНЕШНИЙ вызов: оператор bridge с dial string
+      aa_h323_tr/<транк>/<номер>
+  Номер - ровно то, что получит АТС как called party. Calling number/name берутся из канала
+  (caller_id_number / caller_id_name, т.е. effective_caller_id_* или outbound_caller_id_*).
+  Нет такого транка - вызов завершается NO_ROUTE_DESTINATION; АТС отбила - причина отбоя АТС
+  возвращается в FreeSWITCH как hangup cause.
+-->
+<include>
+
+  <!-- 1. Префикс выхода 9: 9 + номер на АТС (9111234 -> на АТС уйдёт 111234) -->
+  <extension name="to_pbx_cm1_prefix9">
+    <condition field="destination_number" expression="^9(\d{3,15})$">
+      <action application="set" data="hangup_after_bridge=true"/>
+      <action application="set" data="effective_caller_id_number=${caller_id_number}"/>
+      <action application="set" data="effective_caller_id_name=${caller_id_name}"/>
+      <action application="set" data="continue_on_fail=true"/>
+      <action application="bridge" data="aa_h323_tr/cm1/$1"/>
+      <action application="hangup" data="${originate_disposition}"/>
+    </condition>
+  </extension>
+
+  <!-- 2. Внутренние 0xxx -> номера АТС 111xxx (обратное к in_number_rules 111xxx -> 0xxx) -->
+  <extension name="to_pbx_cm1_0xxx">
+    <condition field="destination_number" expression="^0(\d{3})$">
+      <action application="set" data="hangup_after_bridge=true"/>
+      <action application="bridge" data="aa_h323_tr/cm1/111$1"/>
+    </condition>
+  </extension>
+
+  <!-- 3. Резервирование по двум транкам: если cm1 недоступен или отбил - пробуем cm2 (символ | = «затем») -->
+  <extension name="to_pbx_failover">
+    <condition field="destination_number" expression="^8(\d{3,15})$">
+      <action application="set" data="hangup_after_bridge=true"/>
+      <action application="bridge" data="aa_h323_tr/cm1/$1|aa_h323_tr/cm2/$1"/>
+    </condition>
+  </extension>
+
+</include>

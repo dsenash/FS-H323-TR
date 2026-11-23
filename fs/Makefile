@@ -137,7 +137,7 @@ OBJECTS := $(SOURCES:.c=.o)
 
 .PHONY: all clean install install-conf setup print-confdir print-moddir
 
-all: $(TARGET)
+all: $(TARGET) $(CORE)/build/aa_h323_tr.example.json
 
 # Сборка + установка + настройка одним вызовом (см. ../install.sh). Запускать от root.
 setup:
@@ -158,14 +158,27 @@ BUILD_HASH := $(shell cat $(SOURCES) $(wildcard $(CORE)/*.h) 2>/dev/null | md5su
 	@echo '$(BUILD_HASH)' | cmp -s - $@ || echo '$(BUILD_HASH)' > $@
 FORCE:
 
+# Номер сборки 0.0.N: растёт, когда исходники изменились (см. ../packaging/buildnum.sh).
+ifeq ($(filter clean print-confdir print-moddir,$(MAKECMDGOALS)),)
+BUILD_NUM := $(shell $(CORE)/packaging/buildnum.sh)
+else
+BUILD_NUM := $(shell $(CORE)/packaging/buildnum.sh get)
+endif
+BUILD_VER := 0.0.$(BUILD_NUM)
+
 %.o: %.c $(wildcard $(CORE)/*.h) .buildstamp
-	$(CC) $(CFLAGS) -DAA_TR_BUILD=\"$(BUILD_HASH)\" -c -o $@ $<
+	$(CC) $(CFLAGS) -DAA_TR_BUILD=\"$(BUILD_VER)\" -c -o $@ $<
+
+# Пример конфигурации с подставленным номером сборки (identity.version = 0.0.N)
+$(CORE)/build/aa_h323_tr.example.json: $(CORE)/config/aa_h323_tr.example.json $(TARGET) FORCE
+	@mkdir -p $(CORE)/build
+	$(CORE)/packaging/buildnum.sh subst $< $@
 
 clean:
 	rm -f $(OBJECTS) $(TARGET) .buildstamp
 
 # Копирует модуль в каталог модулей FreeSWITCH.
-install: $(TARGET)
+install: $(TARGET) $(CORE)/build/aa_h323_tr.example.json
 ifeq ($(strip $(FS_MODDIR)),)
 	$(error Не удалось определить каталог модулей FreeSWITCH; установите вручную, например: install -m755 $(TARGET) /usr/lib/freeswitch/mod/)
 endif
@@ -184,4 +197,6 @@ endif
 	install -d $(FS_CONFDIR)/dialplan
 	test -f $(FS_CONFDIR)/dialplan/aa_h323_tr.xml || \
 	  install -m644 conf/dialplan-aa_h323_tr.xml $(FS_CONFDIR)/dialplan/aa_h323_tr.xml
+	install -d $(FS_CONFDIR)/aa_h323_tr
+	install -m644 conf/dialplan-aa_h323_tr_outbound.example.xml $(FS_CONFDIR)/aa_h323_tr/dialplan-outbound.example.xml
 	@echo "Installed sample config (only where nothing existed yet) - review and edit before use."
