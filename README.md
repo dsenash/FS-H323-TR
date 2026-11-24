@@ -169,6 +169,8 @@ In the CM signaling group bound to the trunk:
 - `Far-end Node Name` — the node with the FreeSWITCH server IP;
 - `Far-end Listen Port` — `local.h225_port` (1722 by default).
 
+Look for file CM_settings.docx for full settings for signaling and trunk group which was used for positive tests. If you have other one and they are important for you then please open an issue and put your settings to it.
+
 ## Maintenance
 
 - Status: `fs_cli -x "aa_h323_tr status"` — build, config path, listener (`NOT LISTENING` if the port is busy),
