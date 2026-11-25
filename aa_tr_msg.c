@@ -128,6 +128,62 @@ static int parse_h245(const uint8_t *u, size_t n, aa_tr_msg_t *m)
 
 static int parse_uuie_t(const aa_tp_uuie_t *t, int dual, const uint8_t *u, size_t n, aa_tr_msg_t *m);
 
+/*
+ * Запасной разбор входящего SETUP, если UUIE не совпал с шаблоном байт-в-байт.
+ * Разные релизы CM кодируют необязательные поля PER по-разному (например, CM R015x: лишний 0x00 перед conferenceID,
+ * UUIE на 1 байт длиннее шаблона). Поэтому нужные поля ищутся по устойчивым якорям, а не по фиксированным смещениям:
+ *   vendor:        00 4c 54 <len-1> product <len-1> version
+ *   sourceCallSignalAddress: d5 1d 80 00 07 00 <ip4> <port2>; conferenceID - 16 байт перед "00 d5"
+ *   fastStart OLC: 4c <cc> 13 80 12 15 00 01 00 <ip4> <rtp2> ; cc: 0x20 = G.711A, 0x60 = G.711u
+ */
+static int parse_setup_loose(const uint8_t *u, size_t n, aa_tr_msg_t *m)
+{
+    size_t p = 0, vend;
+    for (; p + 4 < n; p++) if (u[p] == 0x00 && u[p + 1] == 0x4c && u[p + 2] == 0x54) break;
+    if (p + 4 >= n) return -1;
+    size_t lp = (size_t) u[p + 3] + 1;
+    if (p + 4 + lp + 1 >= n) return -1;
+    size_t lv = (size_t) u[p + 4 + lp] + 1;
+    vend = p + 4 + lp + 1 + lv;
+    if (vend > n) return -1;
+
+    static const uint8_t anchor[6] = { 0xd5, 0x1d, 0x80, 0x00, 0x07, 0x00 };
+    size_t a = 0;
+    int found = 0;
+    for (size_t i = vend + 17; i + sizeof(anchor) + 6 <= n; i++) {
+        if (memcmp(u + i, anchor, sizeof(anchor)) == 0) { a = i; found = 1; break; }
+    }
+    if (!found) return -1;
+
+    unsigned codecs = 0;
+    int have_media = 0;
+    uint8_t ip[4] = { 0 };
+    unsigned port = 0;
+    for (size_t i = a; i + 15 <= n; i++) {
+        if (u[i] == 0x4c && (u[i + 1] == 0x20 || u[i + 1] == 0x60) && u[i + 2] == 0x13 && u[i + 3] == 0x80 && u[i + 4] == 0x12 &&
+            u[i + 5] == 0x15 && u[i + 6] == 0x00 && u[i + 7] == 0x01 && u[i + 8] == 0x00) {
+            codecs |= (u[i + 1] == 0x60) ? AA_TR_CODEC_U : AA_TR_CODEC_A;
+            if (!have_media) {
+                memcpy(ip, u + i + 9, 4);
+                port = ((unsigned) u[i + 13] << 8) | u[i + 14];
+                have_media = 1;
+            }
+        }
+    }
+    if (!have_media || !codecs) return -1;
+
+    cpstr(m->product, u + p + 4, lp);
+    cpstr(m->version, u + p + 4 + lp + 1, lv);
+    memcpy(m->guid, u + a - 17, 16);
+    memcpy(m->sig_ip, u + a + 6, 4);
+    m->sig_port = ((unsigned) u[a + 10] << 8) | u[a + 11];
+    m->has_media = 1;
+    memcpy(m->media_ip, ip, 4);
+    m->rtp_port = port;
+    m->codecs = codecs;
+    return 0;
+}
+
 static int parse_uuie(const uint8_t *u, size_t n, aa_tr_msg_t *m)
 {
     if (m->type == AA_TR_FACILITY) return parse_h245(u, n, m);
@@ -136,6 +192,7 @@ static int parse_uuie(const uint8_t *u, size_t n, aa_tr_msg_t *m)
         if (!cands[ci] || (ci == 1 && cands[1] == cands[0])) continue;
         if (parse_uuie_t(cands[ci], ci == 0, u, n, m) == 0) return 0;
     }
+    if (m->type == AA_TR_SETUP) return parse_setup_loose(u, n, m);
     return -1;
 }
 

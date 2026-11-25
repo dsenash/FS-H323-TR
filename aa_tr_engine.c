@@ -447,6 +447,13 @@ static void handle_frame(conn_t *c, const uint8_t *f, size_t n)
             c->state = CS_DONE; c->notified = 1;
         } else if (m.type == AA_TR_SETUP && c->incoming && c->state == CS_NEW) {
             lg(e, 30, "aa_tr: SETUP неизвестного вида от %s (%zu байт) - отбой", c->peer_ip, n);
+            {   /* дамп сообщения в журнал: по нему можно доработать разбор без pcap */
+                char hx[2 * 400 + 1];
+                size_t k, nk = n < 400 ? n : 400;
+                for (k = 0; k < nk; k++) snprintf(hx + 2 * k, 3, "%02x", f[k]);
+                hx[2 * nk] = 0;
+                lg(e, 30, "aa_tr: SETUP от %s hex: %s%s", c->peer_ip, hx, n > nk ? "..." : "");
+            }
             reject_setup(c, &m, 100);
         } else {
             lg(e, 20, "aa_tr: непонятное сообщение type=%d (%zu байт) от %s - игнорирую", (int) m.type, n, c->peer_ip);
